@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Caja Registradora - v4.0</title>
+    <title>Sistema de Caja Registradora - v3.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
@@ -110,7 +110,7 @@
                 <div class="flex justify-between items-center mb-1">
                     <h2 class="font-bold text-slate-700 text-[11px] uppercase tracking-tight">📜 Historial</h2>
                     <div class="flex gap-2">
-                        <button id="btnExportPDF" class="text-blue-500 hover:text-blue-700" title="Exportar para Cuadre"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></button>
+                        <button id="btnExportPDF" class="text-blue-500 hover:text-blue-700"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></button>
                         <button id="btnClearHistory" class="text-red-400 hover:text-red-600"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                     </div>
                 </div>
@@ -140,49 +140,20 @@
     </div>
 
     <script>
-        // --- MOTOR DE SONIDOS ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // --- PERSISTENCIA DE PRODUCTOS (BOTONES) ---
+        // Se cargan productos desde localStorage o se usan los iniciales si es la primera vez
+        let products = JSON.parse(localStorage.getItem('pos_products')) || [
+            { id: 1, name: "Producto Base", price: 1000 }
+        ];
+
+        let rawHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
         
-        function playSound(type) {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            const now = audioCtx.currentTime;
+        let history = rawHistory.filter(h => h && (h.total !== undefined)).map(h => {
+            if (!h.items) h.items = [{ name: h.name || "Venta", price: h.total }];
+            if (!h.pagos) h.pagos = { [h.metodo || 'Efectivo']: h.total };
+            return h;
+        });
 
-            if (type === 'add') {
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(440, now);
-                oscillator.frequency.exponentialRampToValueAtTime(880, now + 0.1);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                oscillator.start(); oscillator.stop(now + 0.1);
-            } else if (type === 'remove') {
-                oscillator.type = 'triangle';
-                oscillator.frequency.setValueAtTime(200, now);
-                oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                oscillator.start(); oscillator.stop(now + 0.1);
-            } else if (type === 'cash') {
-                oscillator.type = 'square';
-                oscillator.frequency.setValueAtTime(800, now);
-                oscillator.frequency.setValueAtTime(1200, now + 0.05);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                oscillator.start(); oscillator.stop(now + 0.3);
-            } else if (type === 'error') {
-                oscillator.type = 'sawtooth';
-                oscillator.frequency.setValueAtTime(150, now);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-                oscillator.start(); oscillator.stop(now + 0.2);
-            }
-        }
-
-        // --- LÓGICA DE DATOS ---
-        let products = JSON.parse(localStorage.getItem('pos_products')) || [{ id: 1, name: "Producto Base", price: 1000 }];
-        let history = JSON.parse(localStorage.getItem('pos_history')) || [];
         let cart = [];
         let payments = []; 
         let isEditMode = false;
@@ -204,6 +175,11 @@
             return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
         };
 
+        // Función para guardar productos siempre
+        function saveProducts() {
+            localStorage.setItem('pos_products', JSON.stringify(products));
+        }
+
         function renderProducts(filter = "") {
             productsGrid.innerHTML = '';
             const filtered = products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
@@ -220,13 +196,11 @@
         searchBox.addEventListener('input', (e) => renderProducts(e.target.value));
 
         function addToCart(p) {
-            playSound('add');
             cart.push({...p, cartId: Date.now() + Math.random()});
             updateUI();
         }
 
         function removeFromCart(cartId) {
-            playSound('remove');
             cart = cart.filter(item => item.cartId !== cartId);
             updateUI();
         }
@@ -237,13 +211,13 @@
                 paymentStatus.classList.add('hidden');
             } else {
                 cartItems.innerHTML = cart.map(item => `
-                    <div class="flex justify-between items-center bg-white p-2 rounded border border-slate-200 text-[11px] shadow-sm">
+                    <div class="flex justify-between items-center bg-white p-2 rounded border border-slate-200 text-[11px] shadow-sm animate-in fade-in zoom-in duration-200">
                         <div class="flex flex-col truncate flex-1 pr-2">
                             <span class="font-bold truncate">${item.name}</span>
                             <span class="text-blue-500 font-medium">${formatMoney(item.price)}</span>
                         </div>
                         <button onclick="removeFromCart(${item.cartId})" class="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded hover:bg-red-100 transition">
-                            ✕
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </div>
                 `).join('');
@@ -254,6 +228,7 @@
             const pendiente = Math.max(0, cartTotal - totalPagado);
             
             displayTotal.innerText = formatMoney(pendiente);
+            
             const montoAbono = parseFloat(inputPago.value) || 0;
             displayCambio.innerText = formatMoney(Math.max(0, montoAbono - pendiente));
 
@@ -262,7 +237,7 @@
         }
 
         function handlePayment(method) {
-            if (cart.length === 0) { playSound('error'); return; }
+            if (cart.length === 0) return;
 
             const cartTotal = cart.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
             const totalYaPagado = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
@@ -272,14 +247,12 @@
             if (montoInput === 0) montoInput = pendiente;
 
             const montoRealAAbonar = Math.min(montoInput, pendiente);
+
             payments.push({ amount: montoRealAAbonar, method: method });
 
             const nuevoTotalPagado = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-            if (nuevoTotalPagado >= cartTotal - 0.01) {
-                playSound('cash');
-                finalizeSale();
-            } else {
-                playSound('add');
+            if (nuevoTotalPagado >= cartTotal - 0.01) finalizeSale();
+            else {
                 inputPago.value = '';
                 updateUI();
             }
@@ -309,12 +282,15 @@
             };
 
             history = [newEntry, ...history];
-            localStorage.setItem('pos_history', JSON.stringify(history));
+            localStorage.setItem('pos_history', JSON.stringify(history.slice(0, 1000)));
             
             cart = []; payments = []; inputPago.value = '';
             document.getElementById('manualDateTime').value = '';
+            searchBox.value = '';
+            
             updateUI();
             renderHistory();
+            renderProducts();
         }
 
         function renderHistory() {
@@ -329,24 +305,40 @@
 
             salesHistory.innerHTML = history.map(v => {
                 const pagos = v.pagos || {};
-                const desgloseHTML = Object.keys(pagos).map(m => 
+                const metodos = Object.keys(pagos);
+                
+                const itemsHTML = v.items.map(it => `
+                    <div class="flex justify-between items-center text-[9px] text-slate-500 py-0.5 border-b border-slate-50 last:border-0">
+                        <span class="truncate pr-2">• ${it.name}</span>
+                        <span class="font-medium shrink-0">${formatMoney(it.price)}</span>
+                    </div>
+                `).join('');
+
+                const desglosePagosHTML = metodos.map(m => 
                     `<span class="px-1 py-0.5 rounded ${m === 'Tarjeta' ? 'bg-purple-50 text-purple-600' : 'bg-green-50 text-green-600'} font-bold">
                         ${m.toUpperCase()}
                     </span>`
                 ).join(' ');
 
                 return `
-                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-1">
-                    <div class="flex justify-between items-center pb-1 border-b border-slate-100">
-                        <span class="font-bold text-slate-400">${v.fechaCorta}</span>
-                        <button onclick="removeHistoryItem(${v.id})" class="text-slate-300 hover:text-red-500">✕</button>
+                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2 animate-in slide-in-from-right duration-300">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">${v.fechaCorta} - RECIBO #${v.id.toString().slice(-4)}</span>
+                        <button onclick="removeHistoryItem(${v.id})" class="text-slate-300 hover:text-red-500 transition">✕</button>
                     </div>
-                    <div class="text-[9px] text-slate-500">
-                        ${v.items.map(it => `<div>• ${it.name}</div>`).join('')}
+                    
+                    <div class="space-y-0.5">
+                        ${itemsHTML}
                     </div>
-                    <div class="flex justify-between items-center mt-1">
-                        <div class="flex gap-1">${desgloseHTML}</div>
-                        <span class="font-black text-slate-900">${formatMoney(v.total)}</span>
+
+                    <div class="flex justify-between items-end mt-1">
+                        <div class="flex gap-1">
+                            ${desglosePagosHTML}
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] text-slate-400 font-bold uppercase leading-none">Total</p>
+                            <p class="font-black text-slate-900 text-sm leading-tight">${formatMoney(v.total)}</p>
+                        </div>
                     </div>
                 </div>
                 `;
@@ -355,7 +347,6 @@
 
         function removeHistoryItem(id) {
             if(confirm("¿Eliminar registro?")) {
-                playSound('remove');
                 history = history.filter(h => h.id !== id);
                 localStorage.setItem('pos_history', JSON.stringify(history));
                 renderHistory();
@@ -369,23 +360,21 @@
                 addToCart({ name, price });
                 document.getElementById('inputManualPrice').value = '';
                 document.getElementById('inputManualName').value = '';
-            } else playSound('error');
+            }
         };
 
         document.getElementById('toggleEdit').onclick = () => {
             isEditMode = !isEditMode;
             document.getElementById('toggleEdit').innerText = isEditMode ? "Salir" : "Configurar Botones";
-            playSound('add');
             renderProducts();
         };
 
         document.getElementById('btnAddProduct').onclick = () => {
             const newP = { id: Date.now(), name: "Nuevo Botón", price: 0 };
             products.push(newP);
-            localStorage.setItem('pos_products', JSON.stringify(products));
+            saveProducts(); // GUARDADO PERSISTENTE AL AÑADIR
             renderProducts();
             openConfig(newP.id);
-            playSound('add');
         };
 
         function openConfig(id) {
@@ -400,93 +389,94 @@
             const name = document.getElementById('editName').value;
             const price = parseFloat(document.getElementById('editPrice').value) || 0;
             products = products.map(p => p.id === editingId ? { ...p, name, price } : p);
-            localStorage.setItem('pos_products', JSON.stringify(products));
+            saveProducts(); // GUARDADO PERSISTENTE AL EDITAR
             configModal.classList.add('hidden');
-            playSound('add');
             renderProducts();
         };
 
         document.getElementById('deleteProduct').onclick = () => {
             products = products.filter(p => p.id !== editingId);
-            localStorage.setItem('pos_products', JSON.stringify(products));
+            saveProducts(); // GUARDADO PERSISTENTE AL ELIMINAR
             configModal.classList.add('hidden');
-            playSound('remove');
             renderProducts();
         };
 
+        document.getElementById('closeModal').onclick = () => configModal.classList.add('hidden');
+        document.getElementById('btnLimpiar').onclick = () => { 
+            if (cart.length === 0) return;
+            if(payments.length > 0 && !confirm("Hay un pago parcial iniciado. ¿Seguro que quieres cancelar la venta?")) return;
+            cart = []; payments = []; updateUI(); 
+        };
+        inputPago.oninput = updateUI;
+
+        document.getElementById('btnClearHistory').onclick = () => {
+            if(confirm("¿Borrar todo el historial?")) {
+                history = [];
+                localStorage.setItem('pos_history', JSON.stringify([]));
+                renderHistory();
+            }
+        };
+
         document.getElementById('btnExportPDF').onclick = () => {
-            if (history.length === 0) { playSound('error'); return; }
-            playSound('add');
+            if (history.length === 0) return;
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
             doc.setFontSize(18);
-            doc.text("REPORTE PARA CUADRE DE CAJA", 14, 20);
-            doc.setFontSize(10);
-            doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 28);
-
+            doc.text("Reporte Detallado de Ventas", 14, 15);
+            
+            let totalGeneral = 0;
             let totalEfectivo = 0;
             let totalTarjeta = 0;
-            let totalGlobal = 0;
-
-            const rows = history.map(v => {
+            
+            const rows = [];
+            history.forEach(v => {
+                const itemsStr = v.items.map(it => `${it.name} (${formatMoney(it.price)})`).join('\n');
+                
                 const efec = v.pagos['Efectivo'] || 0;
                 const tarj = v.pagos['Tarjeta'] || 0;
+                
                 totalEfectivo += efec;
                 totalTarjeta += tarj;
-                totalGlobal += v.total;
+                totalGeneral += (parseFloat(v.total) || 0);
 
-                return [
-                    v.fechaFull,
-                    v.items.map(it => it.name).join(', '),
-                    formatMoney(efec),
-                    formatMoney(tarj),
-                    formatMoney(v.total)
-                ];
+                const pagosStr = [];
+                if(efec > 0) pagosStr.push(`Efectivo: ${formatMoney(efec)}`);
+                if(tarj > 0) pagosStr.push(`Tarjeta: ${formatMoney(tarj)}`);
+
+                rows.push([v.fechaFull, itemsStr, pagosStr.join('\n'), formatMoney(v.total)]);
+            });
+            
+            // Tabla de transacciones
+            doc.autoTable({ 
+                head: [['Fecha', 'Productos', 'Pagos', 'Total']], 
+                body: rows, 
+                startY: 25,
+                styles: { fontSize: 8 }
             });
 
-            // Tabla de Ventas Individuales
-            doc.autoTable({
-                head: [['Fecha/Hora', 'Productos', 'Efectivo', 'Tarjeta', 'Total']],
-                body: rows,
-                startY: 35,
-                styles: { fontSize: 7 },
-                headStyles: { fillStyle: 'F', fillColor: [51, 122, 183] }
-            });
-
-            // Resumen de Cuadre
-            const finalY = doc.lastAutoTable.finalY + 10;
+            // --- SECCIÓN DE CUADRE DE CAJA ---
+            const finalY = doc.lastAutoTable.finalY + 15;
             doc.setFontSize(14);
             doc.text("RESUMEN DE CUADRE", 14, finalY);
             
-            const summaryRows = [
-                ['(+) TOTAL EFECTIVO', formatMoney(totalEfectivo)],
-                ['(+) TOTAL TARJETA', formatMoney(totalTarjeta)],
-                ['(=) TOTAL RECAUDADO', formatMoney(totalGlobal)]
-            ];
-
             doc.autoTable({
-                body: summaryRows,
                 startY: finalY + 5,
+                head: [['Concepto', 'Monto Total']],
+                body: [
+                    ['Total en Efectivo', formatMoney(totalEfectivo)],
+                    ['Total en Tarjeta', formatMoney(totalTarjeta)],
+                    ['TOTAL GENERAL RECAUDADO', formatMoney(totalGeneral)]
+                ],
                 theme: 'grid',
-                styles: { fontSize: 10, fontStyle: 'bold' },
-                columnStyles: { 
-                    0: { cellWidth: 100 }, 
-                    1: { halign: 'right' } 
-                }
+                headStyles: { fillColor: [51, 122, 183] },
+                styles: { fontSize: 10, fontStyle: 'bold' }
             });
 
             doc.save(`cuadre-caja-${new Date().toLocaleDateString()}.pdf`);
         };
 
-        document.getElementById('btnLimpiar').onclick = () => { 
-            if (cart.length === 0) return;
-            playSound('error');
-            cart = []; payments = []; updateUI(); 
-        };
-        inputPago.oninput = updateUI;
-        document.getElementById('closeModal').onclick = () => { configModal.classList.add('hidden'); playSound('remove'); };
-
+        // Render inicial
         renderProducts();
         renderHistory();
         updateUI();
