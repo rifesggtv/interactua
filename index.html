@@ -1,485 +1,944 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Caja Registradora - v3.7</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .products-container { height: calc(100vh - 300px); }
-    </style>
-</head>
-<body class="bg-slate-50 h-screen flex flex-col overflow-hidden">
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  BookOpen, Mic, PenTool, Gamepad2, BrainCircuit, 
+  Film, Trophy, Volume2, ArrowLeft, CheckCircle2, 
+  XCircle, Filter, PlayCircle, RefreshCw
+} from 'lucide-react';
 
-    <!-- Encabezado -->
-    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-20">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                Caja Registradora
-            </h1>
-            <span id="productCounter" class="bg-blue-800 px-3 py-1 rounded-full text-xs font-medium"></span>
+// --- DATA ---
+const verbsData = [
+  { present: 'accept', past: 'accepted', participle: 'accepted', spanish: 'aceptar', type: 'regular', sound: 'id', pron: 'akséptid' },
+  { present: 'add', past: 'added', participle: 'added', spanish: 'agregar', type: 'regular', sound: 'id', pron: 'ádid' },
+  { present: 'arrive', past: 'arrived', participle: 'arrived', spanish: 'llegar', type: 'regular', sound: 'd', pron: 'arraivd' },
+  { present: 'ask', past: 'asked', participle: 'asked', spanish: 'preguntar', type: 'regular', sound: 't', pron: 'askt' },
+  { present: 'be', past: 'was/were', participle: 'been', spanish: 'ser/estar', type: 'irregular', sound: null, pron: 'was/wer' },
+  { present: 'become', past: 'became', participle: 'become', spanish: 'convertirse', type: 'irregular', sound: null, pron: 'bikeim' },
+  { present: 'begin', past: 'began', participle: 'begun', spanish: 'comenzar', type: 'irregular', sound: null, pron: 'bigan' },
+  { present: 'believe', past: 'believed', participle: 'believed', spanish: 'creer', type: 'regular', sound: 'd', pron: 'bilívd' },
+  { present: 'bring', past: 'brought', participle: 'brought', spanish: 'traer', type: 'irregular', sound: null, pron: 'brot' },
+  { present: 'buy', past: 'bought', participle: 'bought', spanish: 'comprar', type: 'irregular', sound: null, pron: 'bot' },
+  { present: 'call', past: 'called', participle: 'called', spanish: 'llamar', type: 'regular', sound: 'd', pron: 'cold' },
+  { present: 'change', past: 'changed', participle: 'changed', spanish: 'cambiar', type: 'regular', sound: 'd', pron: 'cheinyd' },
+  { present: 'clean', past: 'cleaned', participle: 'cleaned', spanish: 'limpiar', type: 'regular', sound: 'd', pron: 'clind' },
+  { present: 'come', past: 'came', participle: 'come', spanish: 'venir', type: 'irregular', sound: null, pron: 'keim' },
+  { present: 'cook', past: 'cooked', participle: 'cooked', spanish: 'cocinar', type: 'regular', sound: 't', pron: 'kukt' },
+  { present: 'dance', past: 'danced', participle: 'danced', spanish: 'bailar', type: 'regular', sound: 't', pron: 'danst' },
+  { present: 'decide', past: 'decided', participle: 'decided', spanish: 'decidir', type: 'regular', sound: 'id', pron: 'disaídid' },
+  { present: 'do', past: 'did', participle: 'done', spanish: 'hacer', type: 'irregular', sound: null, pron: 'did' },
+  { present: 'drink', past: 'drank', participle: 'drunk', spanish: 'beber', type: 'irregular', sound: null, pron: 'drank' },
+  { present: 'drive', past: 'drove', participle: 'driven', spanish: 'conducir', type: 'irregular', sound: null, pron: 'drouv' },
+  { present: 'eat', past: 'ate', participle: 'eaten', spanish: 'comer', type: 'irregular', sound: null, pron: 'eit' },
+  { present: 'enjoy', past: 'enjoyed', participle: 'enjoyed', spanish: 'disfrutar', type: 'regular', sound: 'd', pron: 'enyóid' },
+  { present: 'fall', past: 'fell', participle: 'fallen', spanish: 'caer', type: 'irregular', sound: null, pron: 'fel' },
+  { present: 'feel', past: 'felt', participle: 'felt', spanish: 'sentir', type: 'irregular', sound: null, pron: 'felt' },
+  { present: 'find', past: 'found', participle: 'found', spanish: 'encontrar', type: 'irregular', sound: null, pron: 'faund' },
+  { present: 'finish', past: 'finished', participle: 'finished', spanish: 'terminar', type: 'regular', sound: 't', pron: 'finisht' },
+  { present: 'fix', past: 'fixed', participle: 'fixed', spanish: 'arreglar', type: 'regular', sound: 't', pron: 'fikst' },
+  { present: 'fly', past: 'flew', participle: 'flown', spanish: 'volar', type: 'irregular', sound: null, pron: 'flu' },
+  { present: 'forget', past: 'forgot', participle: 'forgotten', spanish: 'olvidar', type: 'irregular', sound: null, pron: 'forgot' },
+  { present: 'get', past: 'got', participle: 'gotten', spanish: 'obtener', type: 'irregular', sound: null, pron: 'got' },
+  { present: 'give', past: 'gave', participle: 'given', spanish: 'dar', type: 'irregular', sound: null, pron: 'geiv' },
+  { present: 'go', past: 'went', participle: 'gone', spanish: 'ir', type: 'irregular', sound: null, pron: 'went' },
+  { present: 'grow', past: 'grew', participle: 'grown', spanish: 'crecer', type: 'irregular', sound: null, pron: 'gru' },
+  { present: 'have', past: 'had', participle: 'had', spanish: 'tener', type: 'irregular', sound: null, pron: 'jad' },
+  { present: 'hear', past: 'heard', participle: 'heard', spanish: 'escuchar/oír', type: 'irregular', sound: null, pron: 'herd' },
+  { present: 'help', past: 'helped', participle: 'helped', spanish: 'ayudar', type: 'regular', sound: 't', pron: 'jelpt' },
+  { present: 'jump', past: 'jumped', participle: 'jumped', spanish: 'saltar', type: 'regular', sound: 't', pron: 'yompt' },
+  { present: 'know', past: 'knew', participle: 'known', spanish: 'saber/conocer', type: 'irregular', sound: null, pron: 'niu' },
+  { present: 'laugh', past: 'laughed', participle: 'laughed', spanish: 'reír', type: 'regular', sound: 't', pron: 'laft' },
+  { present: 'learn', past: 'learned', participle: 'learned', spanish: 'aprender', type: 'regular', sound: 'd', pron: 'lernd' },
+  { present: 'leave', past: 'left', participle: 'left', spanish: 'salir/dejar', type: 'irregular', sound: null, pron: 'left' },
+  { present: 'like', past: 'liked', participle: 'liked', spanish: 'gustar', type: 'regular', sound: 't', pron: 'laikt' },
+  { present: 'listen', past: 'listened', participle: 'listened', spanish: 'escuchar', type: 'regular', sound: 'd', pron: 'lísend' },
+  { present: 'live', past: 'lived', participle: 'lived', spanish: 'vivir', type: 'regular', sound: 'd', pron: 'livd' },
+  { present: 'look', past: 'looked', participle: 'looked', spanish: 'mirar', type: 'regular', sound: 't', pron: 'lukt' },
+  { present: 'love', past: 'loved', participle: 'loved', spanish: 'amar', type: 'regular', sound: 'd', pron: 'lovd' },
+  { present: 'make', past: 'made', participle: 'made', spanish: 'hacer/fabricar', type: 'irregular', sound: null, pron: 'meid' },
+  { present: 'meet', past: 'met', participle: 'met', spanish: 'conocer/reunirse', type: 'irregular', sound: null, pron: 'met' },
+  { present: 'need', past: 'needed', participle: 'needed', spanish: 'necesitar', type: 'regular', sound: 'id', pron: 'níidid' },
+  { present: 'open', past: 'opened', participle: 'opened', spanish: 'abrir', type: 'regular', sound: 'd', pron: 'oupend' },
+  { present: 'pay', past: 'paid', participle: 'paid', spanish: 'pagar', type: 'irregular', sound: null, pron: 'peid' },
+  { present: 'play', past: 'played', participle: 'played', spanish: 'jugar', type: 'regular', sound: 'd', pron: 'pleid' },
+  { present: 'read', past: 'read', participle: 'read', spanish: 'leer', type: 'irregular', sound: null, pron: 'red' },
+  { present: 'remember', past: 'remembered', participle: 'remembered', spanish: 'recordar', type: 'regular', sound: 'd', pron: 'rimémberd' },
+  { present: 'run', past: 'ran', participle: 'run', spanish: 'correr', type: 'irregular', sound: null, pron: 'ran' },
+  { present: 'say', past: 'said', participle: 'said', spanish: 'decir', type: 'irregular', sound: null, pron: 'sed' },
+  { present: 'see', past: 'saw', participle: 'seen', spanish: 'ver', type: 'irregular', sound: null, pron: 'so' },
+  { present: 'sing', past: 'sang', participle: 'sung', spanish: 'cantar', type: 'irregular', sound: null, pron: 'sang' },
+  { present: 'sit', past: 'sat', participle: 'sat', spanish: 'sentarse', type: 'irregular', sound: null, pron: 'sat' },
+  { present: 'sleep', past: 'slept', participle: 'slept', spanish: 'dormir', type: 'irregular', sound: null, pron: 'slept' },
+  { present: 'speak', past: 'spoke', participle: 'spoken', spanish: 'hablar', type: 'irregular', sound: null, pron: 'spouk' },
+  { present: 'start', past: 'started', participle: 'started', spanish: 'empezar', type: 'regular', sound: 'id', pron: 'stártid' },
+  { present: 'stay', past: 'stayed', participle: 'stayed', spanish: 'quedarse', type: 'regular', sound: 'd', pron: 'steid' },
+  { present: 'stop', past: 'stopped', participle: 'stopped', spanish: 'detener', type: 'regular', sound: 't', pron: 'stopt' },
+  { present: 'study', past: 'studied', participle: 'studied', spanish: 'estudiar', type: 'regular', sound: 'd', pron: 'stádid' },
+  { present: 'swim', past: 'swam', participle: 'swum', spanish: 'nadar', type: 'irregular', sound: null, pron: 'swam' },
+  { present: 'take', past: 'took', participle: 'taken', spanish: 'tomar', type: 'irregular', sound: null, pron: 'tuk' },
+  { present: 'talk', past: 'talked', participle: 'talked', spanish: 'hablar', type: 'regular', sound: 't', pron: 'tokt' },
+  { present: 'teach', past: 'taught', participle: 'taught', spanish: 'enseñar', type: 'irregular', sound: null, pron: 'tot' },
+  { present: 'tell', past: 'told', participle: 'told', spanish: 'contar/decir', type: 'irregular', sound: null, pron: 'tould' },
+  { present: 'think', past: 'thought', participle: 'thought', spanish: 'pensar', type: 'irregular', sound: null, pron: 'zot' },
+  { present: 'try', past: 'tried', participle: 'tried', spanish: 'intentar', type: 'regular', sound: 'd', pron: 'traid' },
+  { present: 'use', past: 'used', participle: 'used', spanish: 'usar', type: 'regular', sound: 'd', pron: 'iuzd' },
+  { present: 'visit', past: 'visited', participle: 'visited', spanish: 'visitar', type: 'regular', sound: 'id', pron: 'vísitid' },
+  { present: 'wait', past: 'waited', participle: 'waited', spanish: 'esperar', type: 'regular', sound: 'id', pron: 'wéitid' },
+  { present: 'walk', past: 'walked', participle: 'walked', spanish: 'caminar', type: 'regular', sound: 't', pron: 'wokt' },
+  { present: 'want', past: 'wanted', participle: 'wanted', spanish: 'querer', type: 'regular', sound: 'id', pron: 'wóntid' },
+  { present: 'wash', past: 'washed', participle: 'washed', spanish: 'lavar', type: 'regular', sound: 't', pron: 'washt' },
+  { present: 'watch', past: 'watched', participle: 'watched', spanish: 'observar', type: 'regular', sound: 't', pron: 'watcht' },
+  { present: 'win', past: 'won', participle: 'won', spanish: 'ganar', type: 'irregular', sound: null, pron: 'won' },
+  { present: 'work', past: 'worked', participle: 'worked', spanish: 'trabajar', type: 'regular', sound: 't', pron: 'workt' },
+  { present: 'write', past: 'wrote', participle: 'written', spanish: 'escribir', type: 'irregular', sound: null, pron: 'rout' }
+];
+
+// --- HELPERS ---
+const playAudio = (text) => {
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9; // Un poco más lento para estudiantes
+    window.speechSynthesis.speak(utterance);
+  } else {
+    alert("Tu navegador no soporta reproducción de voz.");
+  }
+};
+
+// --- COMPONENTS ---
+
+const Button = ({ children, onClick, variant = 'primary', className = '' }) => {
+  const baseStyle = "px-4 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2";
+  const variants = {
+    primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md",
+    secondary: "bg-white text-indigo-600 border-2 border-indigo-200 hover:border-indigo-600",
+    outline: "border-2 border-gray-300 text-gray-700 hover:bg-gray-50",
+    danger: "bg-rose-500 text-white hover:bg-rose-600 shadow-md",
+    success: "bg-emerald-500 text-white hover:bg-emerald-600 shadow-md",
+  };
+  return (
+    <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`}>
+      {children}
+    </button>
+  );
+};
+
+const Card = ({ children, className = '', onClick }) => (
+  <div 
+    onClick={onClick}
+    className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''} ${className}`}
+  >
+    {children}
+  </div>
+);
+
+// --- MAIN APP COMPONENT ---
+export default function App() {
+  const [currentView, setCurrentView] = useState('menu');
+  const [progress, setProgress] = useState({
+    points: 0,
+    learnedVerbs: [],
+    quizzesPassed: 0
+  });
+
+  // Load progress
+  useEffect(() => {
+    const saved = localStorage.getItem('verbMasterProgress');
+    if (saved) setProgress(JSON.parse(saved));
+  }, []);
+
+  // Save progress
+  const updateProgress = (newPoints) => {
+    const updated = { ...progress, points: progress.points + newPoints };
+    setProgress(updated);
+    localStorage.setItem('verbMasterProgress', JSON.stringify(updated));
+  };
+
+  const renderView = () => {
+    switch (currentView) {
+      case 'menu': return <MainMenu setView={setCurrentView} progress={progress} />;
+      case 'learn': return <LearnVerbs setView={setCurrentView} />;
+      case 'pronunciation': return <Pronunciation setView={setCurrentView} />;
+      case 'sentences': return <CreateSentences setView={setCurrentView} />;
+      case 'fillBlanks': return <FillBlanks setView={setCurrentView} updateProgress={updateProgress} />;
+      case 'classify': return <ClassifyGame setView={setCurrentView} updateProgress={updateProgress} />;
+      case 'memory': return <MemoryGame setView={setCurrentView} updateProgress={updateProgress} />;
+      case 'quiz': return <Quiz setView={setCurrentView} updateProgress={updateProgress} />;
+      case 'story': return <StoryMode setView={setCurrentView} />;
+      case 'progress': return <ProgressView setView={setCurrentView} progress={progress} />;
+      default: return <MainMenu setView={setCurrentView} progress={progress} />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
+      <header className="bg-indigo-600 text-white p-4 shadow-md sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-2 font-bold text-xl cursor-pointer" onClick={() => setCurrentView('menu')}>
+            <BookOpen size={24} />
+            <span>VerbMaster English II</span>
+          </div>
+          <div className="flex items-center gap-2 bg-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+            <Trophy size={16} className="text-yellow-400" />
+            <span>{progress.points} pts</span>
+          </div>
         </div>
-        <div class="flex gap-2">
-            <button id="btnAddProduct" class="bg-green-500 hover:bg-green-400 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1 shadow-sm">
-                + Añadir Botón
-            </button>
-            <button id="toggleEdit" class="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm">
-                Configurar Botones
-            </button>
-        </div>
-    </header>
-
-    <main class="flex-1 flex overflow-hidden">
-        <!-- Sección Izquierda -->
-        <div class="flex-1 flex flex-col relative">
-            
-            <!-- Barra de Búsqueda y Entrada Rápida -->
-            <div class="bg-white p-4 shadow-sm border-b border-slate-200 z-10 space-y-3">
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    </span>
-                    <input type="text" id="searchBox" placeholder="Buscar producto por nombre..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50">
-                </div>
-                
-                <div class="flex gap-3 items-center bg-slate-100 p-2 rounded-lg">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase ml-2">Rápido:</span>
-                    <input type="text" id="inputManualName" placeholder="Nombre" class="flex-1 p-2 text-sm border border-slate-300 rounded-lg outline-none">
-                    <input type="number" id="inputManualPrice" placeholder="Precio ($)" class="w-32 p-2 text-sm border border-slate-300 rounded-lg outline-none font-bold">
-                    <button id="btnManualAdd" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition shadow-sm">Añadir</button>
-                </div>
-            </div>
-
-            <!-- Grilla de Productos -->
-            <div class="flex-1 p-6 overflow-y-auto custom-scroll products-container">
-                <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"></div>
-            </div>
-
-            <!-- Panel de Pago -->
-            <div class="bg-white p-4 border-t-2 border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end max-w-6xl mx-auto">
-                    <div class="bg-blue-50 p-2 rounded-lg border border-blue-100">
-                        <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">Total Pendiente</p>
-                        <p class="text-3xl font-black text-blue-600" id="displayTotal">$0</p>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Monto a abonar:</label>
-                        <input type="number" id="inputPago" placeholder="0" class="w-full p-2 border border-slate-300 rounded-lg text-2xl font-bold focus:ring-2 focus:ring-blue-500 outline-none bg-yellow-50">
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Vueltas / Cambio:</p>
-                        <p class="text-3xl font-black text-green-600" id="displayCambio">$0</p>
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <input type="datetime-local" id="manualDateTime" class="w-full p-2 border border-slate-200 rounded text-[10px] bg-slate-50">
-                        <div class="grid grid-cols-2 gap-2">
-                            <button onclick="handlePayment('Efectivo')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-xl text-xs shadow-md transition transform active:scale-95">💵 Efectivo</button>
-                            <button onclick="handlePayment('Tarjeta')" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs shadow-md transition transform active:scale-95">💳 Tarjeta</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-4 flex flex-col items-center gap-2">
-                    <button id="btnLimpiar" class="bg-red-100 hover:bg-red-600 text-red-600 hover:text-white px-8 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all shadow-sm border border-red-200">
-                        ❌ Cancelar Venta
-                    </button>
-                    <span id="paymentStatus" class="text-[10px] font-bold text-orange-500 uppercase italic hidden">Pago parcial iniciado...</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Barra Lateral -->
-        <aside class="w-80 bg-white border-l border-slate-200 flex flex-col z-30">
-            <div class="p-4 border-b border-slate-100 h-1/3 flex flex-col overflow-hidden">
-                <h2 class="font-bold text-slate-700 mb-2 flex items-center gap-2">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                    Carrito
-                </h2>
-                <div id="cartItems" class="flex-1 overflow-y-auto custom-scroll space-y-2"></div>
-            </div>
-
-            <div class="p-4 flex-1 border-t border-slate-100 bg-slate-50 flex flex-col overflow-hidden">
-                <div class="flex justify-between items-center mb-1">
-                    <h2 class="font-bold text-slate-700 text-[11px] uppercase tracking-tight">📜 Historial</h2>
-                    <div class="flex gap-2">
-                        <button id="btnExportPDF" class="text-blue-500 hover:text-blue-700"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></button>
-                        <button id="btnClearHistory" class="text-red-400 hover:text-red-600"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                    </div>
-                </div>
-                <div class="bg-blue-100 p-2 rounded-lg mb-2 flex justify-between items-center border border-blue-200">
-                    <span class="text-[10px] font-bold text-blue-700">Venta Total:</span>
-                    <span id="historyTotalSum" class="font-black text-blue-800 text-sm">$0</span>
-                </div>
-                <div id="salesHistory" class="flex-1 overflow-y-auto custom-scroll space-y-3 text-[10px]"></div>
-            </div>
-        </aside>
-    </main>
-
-    <!-- Modal Editar -->
-    <div id="configModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
-        <div class="bg-white p-6 rounded-2xl shadow-2xl w-80">
-            <h3 class="text-xl font-bold mb-4">Editar Producto</h3>
-            <div class="space-y-4">
-                <input type="text" id="editName" placeholder="Nombre" class="w-full p-2 border rounded-lg">
-                <input type="number" id="editPrice" placeholder="Precio" class="w-full p-2 border rounded-lg">
-            </div>
-            <div class="mt-6 flex flex-col gap-2">
-                <button id="saveConfig" class="bg-blue-600 text-white py-2 rounded-lg font-bold">Guardar</button>
-                <button id="deleteProduct" class="text-red-600 text-sm">Eliminar botón</button>
-                <button id="closeModal" class="text-slate-400 text-sm">Cancelar</button>
-            </div>
-        </div>
+      </header>
+      <main className="max-w-5xl mx-auto p-4 sm:p-6 pb-20">
+        {renderView()}
+      </main>
     </div>
+  );
+}
 
-    <script>
-        // --- PERSISTENCIA DE PRODUCTOS (BOTONES) ---
-        // Se cargan productos desde localStorage o se usan los iniciales si es la primera vez
-        let products = JSON.parse(localStorage.getItem('pos_products')) || [
-            { id: 1, name: "Producto Base", price: 1000 }
-        ];
+// --- SUB-COMPONENTS ---
 
-        let rawHistory = JSON.parse(localStorage.getItem('pos_history')) || [];
-        
-        let history = rawHistory.filter(h => h && (h.total !== undefined)).map(h => {
-            if (!h.items) h.items = [{ name: h.name || "Venta", price: h.total }];
-            if (!h.pagos) h.pagos = { [h.metodo || 'Efectivo']: h.total };
-            return h;
-        });
+function MainMenu({ setView }) {
+  const menuItems = [
+    { id: 'learn', title: 'Aprender Verbos', icon: <BookOpen size={32} />, desc: 'Lista y filtros', color: 'text-blue-500' },
+    { id: 'pronunciation', title: 'Pronunciación', icon: <Mic size={32} />, desc: 'Reglas de -ed', color: 'text-purple-500' },
+    { id: 'sentences', title: 'Crear Frases', icon: <PenTool size={32} />, desc: 'Estructura paso a paso', color: 'text-emerald-500' },
+    { id: 'fillBlanks', title: 'Completar Frases', icon: <PenTool size={32} />, desc: 'Elige el verbo correcto', color: 'text-orange-500' },
+    { id: 'classify', title: 'Clasificar Verbos', icon: <Filter size={32} />, desc: 'Regulares e Irregulares', color: 'text-teal-500' },
+    { id: 'memory', title: 'Juego de Memoria', icon: <Gamepad2 size={32} />, desc: 'Empareja los verbos', color: 'text-pink-500' },
+    { id: 'quiz', title: 'Quiz Rápido', icon: <BrainCircuit size={32} />, desc: 'Evalúa tus conocimientos', color: 'text-red-500' },
+    { id: 'story', title: 'Modo Historia', icon: <Film size={32} />, desc: 'Practica con The Book of Life', color: 'text-indigo-500' },
+    { id: 'progress', title: 'Mi Progreso', icon: <Trophy size={32} />, desc: 'Estadísticas y logros', color: 'text-yellow-500' },
+  ];
 
-        let cart = [];
-        let payments = []; 
-        let isEditMode = false;
-        let editingId = null;
+  return (
+    <div className="animate-fade-in">
+      <div className="text-center mb-10">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4">¡Domina los verbos en pasado!</h1>
+        <p className="text-lg text-slate-600 max-w-2xl mx-auto">Selecciona una actividad para empezar. Aprende las reglas, escucha la pronunciación y pon a prueba tus conocimientos.</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        {menuItems.map(item => (
+          <Card key={item.id} onClick={() => setView(item.id)} className="flex flex-col items-center text-center hover:-translate-y-1 transition-transform border-b-4 border-transparent hover:border-indigo-500">
+            <div className={`p-4 rounded-full bg-slate-50 mb-4 ${item.color}`}>
+              {item.icon}
+            </div>
+            <h2 className="text-xl font-bold mb-2">{item.title}</h2>
+            <p className="text-slate-500 text-sm">{item.desc}</p>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        const productsGrid = document.getElementById('productsGrid');
-        const cartItems = document.getElementById('cartItems');
-        const displayTotal = document.getElementById('displayTotal');
-        const inputPago = document.getElementById('inputPago');
-        const displayCambio = document.getElementById('displayCambio');
-        const salesHistory = document.getElementById('salesHistory');
-        const configModal = document.getElementById('configModal');
-        const historyTotalSum = document.getElementById('historyTotalSum');
-        const searchBox = document.getElementById('searchBox');
-        const paymentStatus = document.getElementById('paymentStatus');
+// 1. APRENDER VERBOS
+function LearnVerbs({ setView }) {
+  const [filter, setFilter] = useState('all'); // all, regular, irregular, t, d, id
+  const [searchTerm, setSearchTerm] = useState('');
 
-        const formatMoney = (v) => {
-            const val = parseFloat(v) || 0;
-            return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
-        };
+  const filteredVerbs = useMemo(() => {
+    return verbsData.filter(v => {
+      const matchesSearch = v.present.includes(searchTerm.toLowerCase()) || v.spanish.includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+      if (filter === 'regular') return v.type === 'regular';
+      if (filter === 'irregular') return v.type === 'irregular';
+      if (filter === 't') return v.sound === 't';
+      if (filter === 'd') return v.sound === 'd';
+      if (filter === 'id') return v.sound === 'id';
+      return true;
+    });
+  }, [filter, searchTerm]);
 
-        // Función para guardar productos siempre
-        function saveProducts() {
-            localStorage.setItem('pos_products', JSON.stringify(products));
-        }
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <h2 className="text-2xl font-bold">Diccionario de Verbos</h2>
+      </div>
 
-        function renderProducts(filter = "") {
-            productsGrid.innerHTML = '';
-            const filtered = products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
-            filtered.forEach(p => {
-                const btn = document.createElement('button');
-                btn.className = `p-4 h-24 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition shadow-sm w-full ${isEditMode ? 'border-orange-400 bg-orange-50 animate-pulse' : 'bg-white border-transparent hover:border-blue-500 hover:shadow-md'}`;
-                btn.innerHTML = `<span class="font-bold text-slate-700 text-[11px] text-center line-clamp-2 leading-tight">${p.name}</span><span class="text-blue-600 font-bold text-[10px]">${formatMoney(p.price)}</span>`;
-                btn.onclick = () => isEditMode ? openConfig(p.id) : addToCart(p);
-                productsGrid.appendChild(btn);
-            });
-            document.getElementById('productCounter').innerText = `${products.length} Botones`;
-        }
+      <div className="bg-white p-4 rounded-xl shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+        <input 
+          type="text" 
+          placeholder="Buscar verbo..." 
+          className="w-full md:w-64 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <div className="flex flex-wrap gap-2 justify-center">
+          {[
+            { id: 'all', label: 'Todos' },
+            { id: 'regular', label: 'Regulares' },
+            { id: 'irregular', label: 'Irregulares' },
+            { id: 't', label: 'Sonido /t/' },
+            { id: 'd', label: 'Sonido /d/' },
+            { id: 'id', label: 'Sonido /id/' },
+          ].map(f => (
+            <button 
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${filter === f.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        searchBox.addEventListener('input', (e) => renderProducts(e.target.value));
+      <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-100 text-slate-700">
+              <th className="p-4 border-b">Presente</th>
+              <th className="p-4 border-b">Pasado</th>
+              <th className="p-4 border-b">Español</th>
+              <th className="p-4 border-b">Tipo</th>
+              <th className="p-4 border-b">Sonido Final</th>
+              <th className="p-4 border-b text-center">Escuchar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredVerbs.map((v, i) => (
+              <tr key={i} className="border-b hover:bg-slate-50 transition-colors">
+                <td className="p-4 font-semibold text-indigo-700">{v.present}</td>
+                <td className="p-4 font-medium">
+                  {v.past}
+                  {v.type === 'regular' && <span className="block text-xs text-slate-400">Pron: {v.pron}</span>}
+                </td>
+                <td className="p-4 text-slate-600">{v.spanish}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${v.type === 'regular' ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'}`}>
+                    {v.type}
+                  </span>
+                </td>
+                <td className="p-4 font-mono text-slate-500">
+                  {v.sound ? `/${v.sound}/` : '-'}
+                </td>
+                <td className="p-4 text-center">
+                  <button onClick={() => playAudio(v.past)} className="text-indigo-500 hover:text-indigo-700 p-2 rounded-full hover:bg-indigo-50">
+                    <Volume2 size={20} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {filteredVerbs.length === 0 && (
+              <tr><td colSpan="6" className="p-8 text-center text-slate-500">No se encontraron verbos.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
-        function addToCart(p) {
-            cart.push({...p, cartId: Date.now() + Math.random()});
-            updateUI();
-        }
+// 2. PRONUNCIACIÓN
+function Pronunciation({ setView }) {
+  const rules = [
+    {
+      sound: '/t/',
+      desc: 'Si el verbo en su forma base termina en un sonido SORDO (p, k, f, s, sh, ch).',
+      examples: ['watch → watched', 'work → worked', 'help → helped'],
+      audioWord: 'watched',
+      color: 'bg-rose-50 border-rose-200'
+    },
+    {
+      sound: '/d/',
+      desc: 'Si el verbo en su forma base termina en un sonido SONORO (l, n, r, g, v, z, m) o una VOCAL.',
+      examples: ['play → played', 'clean → cleaned', 'live → lived'],
+      audioWord: 'played',
+      color: 'bg-emerald-50 border-emerald-200'
+    },
+    {
+      sound: '/id/',
+      desc: 'Si el verbo en su forma base termina en el sonido /t/ o /d/. ¡Es la única vez que pronuncias una sílaba extra!',
+      examples: ['want → wanted', 'need → needed', 'visit → visited'],
+      audioWord: 'wanted',
+      color: 'bg-blue-50 border-blue-200'
+    }
+  ];
 
-        function removeFromCart(cartId) {
-            cart = cart.filter(item => item.cartId !== cartId);
-            updateUI();
-        }
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <h2 className="text-2xl font-bold">Reglas de Pronunciación (-ed)</h2>
+      </div>
 
-        function updateUI() {
-            if (cart.length === 0) {
-                cartItems.innerHTML = '<p class="text-slate-400 text-center text-xs mt-4 italic">Carrito vacío</p>';
-                paymentStatus.classList.add('hidden');
-            } else {
-                cartItems.innerHTML = cart.map(item => `
-                    <div class="flex justify-between items-center bg-white p-2 rounded border border-slate-200 text-[11px] shadow-sm animate-in fade-in zoom-in duration-200">
-                        <div class="flex flex-col truncate flex-1 pr-2">
-                            <span class="font-bold truncate">${item.name}</span>
-                            <span class="text-blue-500 font-medium">${formatMoney(item.price)}</span>
-                        </div>
-                        <button onclick="removeFromCart(${item.cartId})" class="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded hover:bg-red-100 transition">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                    </div>
-                `).join('');
-            }
+      <div className="bg-white p-6 rounded-xl shadow-sm text-lg text-slate-700">
+        <p>Los verbos regulares en pasado terminan en <strong>-ed</strong>, pero esta terminación tiene <strong>3 pronunciaciones diferentes</strong> dependiendo del sonido final del verbo original. ¡Nunca se pronuncia como se escribe en español!</p>
+      </div>
 
-            const cartTotal = cart.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-            const totalPagado = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-            const pendiente = Math.max(0, cartTotal - totalPagado);
-            
-            displayTotal.innerText = formatMoney(pendiente);
-            
-            const montoAbono = parseFloat(inputPago.value) || 0;
-            displayCambio.innerText = formatMoney(Math.max(0, montoAbono - pendiente));
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {rules.map((rule, i) => (
+          <Card key={i} className={`border-2 ${rule.color}`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-3xl font-black">{rule.sound}</h3>
+              <button onClick={() => playAudio(rule.audioWord)} className="bg-white p-3 rounded-full shadow hover:scale-110 transition-transform">
+                <Volume2 size={24} className="text-indigo-600" />
+              </button>
+            </div>
+            <p className="text-slate-700 mb-4 h-24">{rule.desc}</p>
+            <div className="bg-white bg-opacity-60 rounded-lg p-3">
+              <h4 className="font-bold text-sm text-slate-500 mb-2">Ejemplos:</h4>
+              <ul className="space-y-2">
+                {rule.examples.map((ex, j) => (
+                  <li key={j} className="flex justify-between items-center font-mono font-medium text-indigo-900">
+                    {ex}
+                    <button onClick={() => playAudio(ex.split('→')[1].trim())} className="text-indigo-400 hover:text-indigo-600">
+                      <PlayCircle size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-            if (payments.length > 0) paymentStatus.classList.remove('hidden');
-            else paymentStatus.classList.add('hidden');
-        }
+// 3. CREAR FRASES
+function CreateSentences({ setView }) {
+  const [mode, setMode] = useState('affirmative'); // affirmative, negative, question
+  const [subject, setSubject] = useState('');
+  const [verb, setVerb] = useState('');
+  const [complement, setComplement] = useState('');
 
-        function handlePayment(method) {
-            if (cart.length === 0) return;
+  const subjects = ['Manolo', 'María', 'Joaquín', 'They', 'We', 'I'];
+  const complements = ['the movie', 'a song', 'the town', 'to the bull', 'a letter'];
+  const testVerbs = verbsData.slice(0, 15); // Just a subset for ease
 
-            const cartTotal = cart.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-            const totalYaPagado = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-            const pendiente = cartTotal - totalYaPagado;
+  const getSentence = () => {
+    if (!subject || !verb || !complement) return '';
+    const vObj = testVerbs.find(v => v.present === verb);
+    if (mode === 'affirmative') {
+      return `${subject} ${vObj.past} ${complement}.`;
+    } else if (mode === 'negative') {
+      return `${subject} did not ${vObj.present} ${complement}.`;
+    } else if (mode === 'question') {
+      return `Did ${subject} ${vObj.present} ${complement}?`;
+    }
+  };
 
-            let montoInput = parseFloat(inputPago.value) || 0;
-            if (montoInput === 0) montoInput = pendiente;
+  const sentence = getSentence();
+  const vObj = testVerbs.find(v => v.present === verb);
 
-            const montoRealAAbonar = Math.min(montoInput, pendiente);
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <h2 className="text-2xl font-bold">Constructor de Frases</h2>
+      </div>
 
-            payments.push({ amount: montoRealAAbonar, method: method });
+      <div className="flex gap-4 justify-center">
+        <Button variant={mode === 'affirmative' ? 'primary' : 'outline'} onClick={() => setMode('affirmative')}>Afirmativa (+)</Button>
+        <Button variant={mode === 'negative' ? 'primary' : 'outline'} onClick={() => setMode('negative')}>Negativa (-)</Button>
+        <Button variant={mode === 'question' ? 'primary' : 'outline'} onClick={() => setMode('question')}>Pregunta (?)</Button>
+      </div>
 
-            const nuevoTotalPagado = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-            if (nuevoTotalPagado >= cartTotal - 0.01) finalizeSale();
-            else {
-                inputPago.value = '';
-                updateUI();
-            }
-        }
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Subject */}
+        <Card>
+          <h3 className="font-bold text-slate-500 mb-2">1. Sujeto (Subject)</h3>
+          <select className="w-full p-2 border rounded-lg" value={subject} onChange={e => setSubject(e.target.value)}>
+            <option value="">Selecciona...</option>
+            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </Card>
+        {/* Verb */}
+        <Card>
+          <h3 className="font-bold text-slate-500 mb-2">2. Verbo (Verb)</h3>
+          <select className="w-full p-2 border rounded-lg" value={verb} onChange={e => setVerb(e.target.value)}>
+            <option value="">Selecciona (Forma base)...</option>
+            {testVerbs.map(v => <option key={v.present} value={v.present}>{v.present} ({v.spanish})</option>)}
+          </select>
+          {mode === 'negative' && <p className="text-xs text-rose-500 mt-2 font-medium">Usamos 'did not', el verbo vuelve a su forma base.</p>}
+          {mode === 'question' && <p className="text-xs text-rose-500 mt-2 font-medium">Usamos 'Did' al inicio, el verbo vuelve a su forma base.</p>}
+        </Card>
+        {/* Complement */}
+        <Card>
+          <h3 className="font-bold text-slate-500 mb-2">3. Complemento</h3>
+          <select className="w-full p-2 border rounded-lg" value={complement} onChange={e => setComplement(e.target.value)}>
+            <option value="">Selecciona...</option>
+            {complements.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </Card>
+      </div>
 
-        function finalizeSale() {
-            const manualDateVal = document.getElementById('manualDateTime').value;
-            const fechaObj = manualDateVal ? new Date(manualDateVal) : new Date();
-            const timestamp = fechaObj.toLocaleString();
-            const timeStr = fechaObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      {sentence && (
+        <Card className="bg-indigo-50 border-indigo-200 mt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-2xl sm:text-3xl font-black text-indigo-900">{sentence}</h3>
+            <button onClick={() => playAudio(sentence)} className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-lg">
+              <Volume2 size={24} />
+            </button>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg">
+            <h4 className="font-bold text-slate-700 mb-2">Explicación Gramatical:</h4>
+            <ul className="list-disc pl-5 text-slate-600 space-y-1">
+              <li><strong>Sujeto:</strong> {subject}</li>
+              {mode === 'affirmative' && <li><strong>Verbo en pasado:</strong> {vObj.past} ({vObj.type === 'regular' ? `Regular, sonido /${vObj.sound}/` : 'Irregular'})</li>}
+              {mode === 'negative' && <li><strong>Auxiliar negativo:</strong> did not (didn't) + <strong>Verbo base:</strong> {vObj.present}</li>}
+              {mode === 'question' && <li><strong>Auxiliar pregunta:</strong> Did + <strong>Verbo base:</strong> {vObj.present}</li>}
+              <li><strong>Complemento:</strong> {complement}</li>
+              <li className="mt-2 text-indigo-700 font-medium"><strong>Traducción sugerida:</strong> {
+                mode === 'affirmative' ? `[Sujeto] ${vObj.spanish} (en pasado) [Complemento]` :
+                mode === 'negative' ? `[Sujeto] no ${vObj.spanish} (en pasado) [Complemento]` :
+                `¿[Sujeto] ${vObj.spanish} (en pasado) [Complemento]?`
+              }</li>
+            </ul>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
 
-            const cartTotal = cart.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-            const itemsDetalle = cart.map(i => ({ name: i.name, price: i.price }));
-            
-            const resumenPagos = {};
-            payments.forEach(p => {
-                resumenPagos[p.method] = (resumenPagos[p.method] || 0) + p.amount;
-            });
+// 4. JUEGO DE COMPLETAR FRASES
+function FillBlanks({ setView, updateProgress }) {
+  const questions = [
+    { text: "Manolo ______ a song for María.", options: ['sing', 'sang', 'sung', 'sings'], correct: 'sang', verbObj: verbsData.find(v => v.present === 'sing') },
+    { text: "They ______ the movie yesterday.", options: ['watch', 'watches', 'watched', 'watching'], correct: 'watched', verbObj: verbsData.find(v => v.present === 'watch') },
+    { text: "María did not ______ the letter.", options: ['wrote', 'written', 'writes', 'write'], correct: 'write', exp: "Después de 'did not', el verbo vuelve a su forma base." },
+    { text: "______ Joaquín protect the town?", options: ['Do', 'Does', 'Did', 'Done'], correct: 'Did', exp: "Para preguntas en pasado simple usamos el auxiliar 'Did'." },
+    { text: "She ______ to Mexico last year.", options: ['go', 'goes', 'went', 'gone'], correct: 'went', verbObj: verbsData.find(v => v.present === 'go') }
+  ];
 
-            const newEntry = {
-                id: Date.now(),
-                items: itemsDetalle,
-                total: cartTotal,
-                pagos: resumenPagos,
-                fechaFull: timestamp,
-                fechaCorta: timeStr
-            };
+  const [currentQ, setCurrentQ] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [showResult, setShowResult] = useState(false);
 
-            history = [newEntry, ...history];
-            localStorage.setItem('pos_history', JSON.stringify(history.slice(0, 1000)));
-            
-            cart = []; payments = []; inputPago.value = '';
-            document.getElementById('manualDateTime').value = '';
-            searchBox.value = '';
-            
-            updateUI();
-            renderHistory();
-            renderProducts();
-        }
+  const handleSelect = (option) => {
+    if (showResult) return;
+    setSelected(option);
+    setShowResult(true);
+    if (option === questions[currentQ].correct) {
+      updateProgress(10);
+      playAudio('Correct');
+    } else {
+      playAudio('Try again');
+    }
+  };
 
-        function renderHistory() {
-            if (history.length === 0) {
-                salesHistory.innerHTML = '<p class="text-center text-slate-400 mt-2">Sin registros</p>';
-                historyTotalSum.innerText = formatMoney(0);
-                return;
-            }
-            
-            const totalSum = history.reduce((s, h) => s + (parseFloat(h.total) || 0), 0);
-            historyTotalSum.innerText = formatMoney(totalSum);
+  const nextQuestion = () => {
+    setSelected(null);
+    setShowResult(false);
+    if (currentQ < questions.length - 1) {
+      setCurrentQ(currentQ + 1);
+    } else {
+      setCurrentQ(0); // loop or show final score
+    }
+  };
 
-            salesHistory.innerHTML = history.map(v => {
-                const pagos = v.pagos || {};
-                const metodos = Object.keys(pagos);
-                
-                const itemsHTML = v.items.map(it => `
-                    <div class="flex justify-between items-center text-[9px] text-slate-500 py-0.5 border-b border-slate-50 last:border-0">
-                        <span class="truncate pr-2">• ${it.name}</span>
-                        <span class="font-medium shrink-0">${formatMoney(it.price)}</span>
-                    </div>
-                `).join('');
+  const q = questions[currentQ];
+  const isCorrect = selected === q.correct;
 
-                const desglosePagosHTML = metodos.map(m => 
-                    `<span class="px-1 py-0.5 rounded ${m === 'Tarjeta' ? 'bg-purple-50 text-purple-600' : 'bg-green-50 text-green-600'} font-bold">
-                        ${m.toUpperCase()}
-                    </span>`
-                ).join(' ');
+  return (
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <span className="font-bold text-slate-500">Pregunta {currentQ + 1} / {questions.length}</span>
+      </div>
 
-                return `
-                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2 animate-in slide-in-from-right duration-300">
-                    <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">${v.fechaCorta} - RECIBO #${v.id.toString().slice(-4)}</span>
-                        <button onclick="removeHistoryItem(${v.id})" class="text-slate-300 hover:text-red-500 transition">✕</button>
-                    </div>
-                    
-                    <div class="space-y-0.5">
-                        ${itemsHTML}
-                    </div>
+      <Card className="text-center p-8">
+        <h3 className="text-2xl font-medium text-slate-800 mb-8">
+          {q.text.split('______').map((part, i, arr) => (
+            <React.Fragment key={i}>
+              {part}
+              {i < arr.length - 1 && (
+                <span className={`inline-block w-24 border-b-2 mx-2 ${showResult ? (isCorrect ? 'border-emerald-500 text-emerald-600' : 'border-rose-500 text-rose-600') : 'border-slate-400'}`}>
+                  {selected || '______'}
+                </span>
+              )}
+            </React.Fragment>
+          ))}
+        </h3>
 
-                    <div class="flex justify-between items-end mt-1">
-                        <div class="flex gap-1">
-                            ${desglosePagosHTML}
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[9px] text-slate-400 font-bold uppercase leading-none">Total</p>
-                            <p class="font-black text-slate-900 text-sm leading-tight">${formatMoney(v.total)}</p>
-                        </div>
-                    </div>
+        <div className="grid grid-cols-2 gap-4">
+          {q.options.map(opt => (
+            <button
+              key={opt}
+              onClick={() => handleSelect(opt)}
+              disabled={showResult}
+              className={`p-4 rounded-xl text-lg font-semibold transition-all shadow-sm border-2 
+                ${showResult && opt === q.correct ? 'bg-emerald-100 border-emerald-500 text-emerald-800' : ''}
+                ${showResult && selected === opt && opt !== q.correct ? 'bg-rose-100 border-rose-500 text-rose-800' : ''}
+                ${!showResult ? 'bg-white border-slate-200 hover:border-indigo-400 hover:shadow-md' : 'opacity-70 cursor-default'}
+              `}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+
+        {showResult && (
+          <div className={`mt-8 p-4 rounded-lg text-left ${isCorrect ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+            <div className="flex items-center gap-2 mb-2 font-bold">
+              {isCorrect ? <><CheckCircle2 className="text-emerald-500"/> ¡Correcto!</> : <><XCircle className="text-rose-500"/> Incorrecto</>}
+            </div>
+            <p className="text-slate-700">
+              {q.exp || (isCorrect ? `¡Muy bien! "${q.correct}" es la forma correcta.` : `La respuesta correcta era "${q.correct}".`)}
+              {q.verbObj && q.verbObj.type === 'regular' && ` Este verbo es regular y suena /${q.verbObj.sound}/ al final.`}
+              {q.verbObj && q.verbObj.type === 'irregular' && ` Este es un verbo irregular (presente: ${q.verbObj.present}).`}
+            </p>
+            <Button onClick={nextQuestion} className="w-full mt-4" variant={isCorrect ? 'success' : 'primary'}>
+              Siguiente Pregunta
+            </Button>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// 5. CLASIFICAR VERBOS
+function ClassifyGame({ setView, updateProgress }) {
+  // Select some verbs for the game
+  const gameVerbs = useMemo(() => {
+    let arr = [...verbsData].sort(() => 0.5 - Math.random()).slice(0, 10);
+    return arr;
+  }, []);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [feedback, setFeedback] = useState(null);
+
+  const categories = [
+    { id: 't', label: 'Regular /t/' },
+    { id: 'd', label: 'Regular /d/' },
+    { id: 'id', label: 'Regular /id/' },
+    { id: 'irregular', label: 'Irregular' }
+  ];
+
+  const handleClassify = (catId) => {
+    const v = gameVerbs[currentIndex];
+    const isIrreg = v.type === 'irregular';
+    const isCorrect = (isIrreg && catId === 'irregular') || (!isIrreg && v.sound === catId);
+
+    if (isCorrect) {
+      setFeedback('correct');
+      updateProgress(5);
+      playAudio(v.past);
+      setTimeout(() => {
+        setFeedback(null);
+        if (currentIndex < gameVerbs.length - 1) setCurrentIndex(c => c + 1);
+        else setCurrentIndex(-1); // End
+      }, 1500);
+    } else {
+      setFeedback('incorrect');
+      setTimeout(() => setFeedback(null), 1000);
+    }
+  };
+
+  if (currentIndex === -1) {
+    return (
+      <div className="text-center animate-fade-in py-20 space-y-6">
+        <Trophy size={64} className="text-yellow-400 mx-auto" />
+        <h2 className="text-3xl font-bold">¡Juego Completado!</h2>
+        <Button onClick={() => setView('menu')} className="mx-auto">Volver al Menú</Button>
+      </div>
+    );
+  }
+
+  const verb = gameVerbs[currentIndex];
+
+  return (
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+       <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <span className="font-bold text-slate-500">Verbo {currentIndex + 1} de {gameVerbs.length}</span>
+      </div>
+
+      <div className="text-center mb-8">
+        <p className="text-slate-500 mb-2">Clasifica el siguiente verbo en su forma de PASADO:</p>
+        <div className="text-5xl font-black text-indigo-900 py-8 bg-white rounded-xl shadow-sm border-2 border-indigo-100 flex justify-center items-center gap-4 relative overflow-hidden">
+           {verb.past}
+           <button onClick={() => playAudio(verb.past)} className="text-indigo-400 hover:text-indigo-600 absolute right-4 top-4">
+              <Volume2 size={24} />
+            </button>
+           {feedback === 'correct' && <div className="absolute inset-0 bg-emerald-500 text-white flex items-center justify-center animate-pulse"><CheckCircle2 size={48}/></div>}
+           {feedback === 'incorrect' && <div className="absolute inset-0 bg-rose-500 text-white flex items-center justify-center animate-pulse"><XCircle size={48}/></div>}
+        </div>
+        <p className="text-slate-400 mt-2">Forma base: {verb.present} ({verb.spanish})</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {categories.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => handleClassify(cat.id)}
+            disabled={feedback !== null}
+            className="bg-white border-2 border-slate-200 p-6 rounded-xl text-xl font-bold text-slate-700 hover:border-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 transition-colors shadow-sm"
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 6. JUEGO DE MEMORIA
+function MemoryGame({ setView, updateProgress }) {
+  const [cards, setCards] = useState([]);
+  const [flippedIds, setFlippedIds] = useState([]);
+  const [matchedIds, setMatchedIds] = useState([]);
+
+  // Init game
+  const initGame = useCallback(() => {
+    // Select 6 random verbs
+    const selected = [...verbsData].sort(() => 0.5 - Math.random()).slice(0, 6);
+    let newCards = [];
+    selected.forEach(v => {
+      // Create a pair for each verb (Present - Past)
+      const id1 = Math.random().toString(36).substr(2, 9);
+      const id2 = Math.random().toString(36).substr(2, 9);
+      newCards.push({ id: id1, text: v.present, type: 'present', matchId: id2, audio: v.present });
+      newCards.push({ id: id2, text: v.past, type: 'past', matchId: id1, audio: v.past });
+    });
+    // Shuffle
+    newCards = newCards.sort(() => 0.5 - Math.random());
+    setCards(newCards);
+    setFlippedIds([]);
+    setMatchedIds([]);
+  }, []);
+
+  useEffect(() => {
+    initGame();
+  }, [initGame]);
+
+  const handleCardClick = (card) => {
+    if (flippedIds.length === 2) return;
+    if (flippedIds.includes(card.id) || matchedIds.includes(card.id)) return;
+
+    playAudio(card.audio);
+    const newFlipped = [...flippedIds, card.id];
+    setFlippedIds(newFlipped);
+
+    if (newFlipped.length === 2) {
+      const card1 = cards.find(c => c.id === newFlipped[0]);
+      const card2 = cards.find(c => c.id === newFlipped[1]);
+
+      if (card1.matchId === card2.id) {
+        // Match!
+        setTimeout(() => {
+          setMatchedIds([...matchedIds, card1.id, card2.id]);
+          setFlippedIds([]);
+          updateProgress(15);
+        }, 1000);
+      } else {
+        // No match
+        setTimeout(() => {
+          setFlippedIds([]);
+        }, 1200);
+      }
+    }
+  };
+
+  const isWin = cards.length > 0 && matchedIds.length === cards.length;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+       <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <Button variant="outline" onClick={initGame}><RefreshCw size={18} className="mr-2"/> Reiniciar</Button>
+      </div>
+
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold">Juego de Memoria</h2>
+        <p className="text-slate-500">Encuentra los pares: Verbo en presente ↔ Verbo en pasado</p>
+      </div>
+
+      {isWin ? (
+        <div className="text-center bg-white p-10 rounded-xl shadow-sm border-2 border-emerald-200">
+           <Trophy size={64} className="text-yellow-400 mx-auto mb-4 animate-bounce" />
+           <h3 className="text-3xl font-bold text-emerald-700 mb-4">¡Excelente memoria!</h3>
+           <Button onClick={initGame} className="mx-auto">Jugar de nuevo</Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 sm:gap-4 max-w-3xl mx-auto perspective-1000">
+          {cards.map(card => {
+            const isFlipped = flippedIds.includes(card.id) || matchedIds.includes(card.id);
+            return (
+              <div 
+                key={card.id}
+                onClick={() => handleCardClick(card)}
+                className={`relative w-full h-24 sm:h-32 rounded-xl cursor-pointer transition-transform duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
+                style={{ transformStyle: 'preserve-3d', transition: 'transform 0.6s' }}
+              >
+                {/* Front of card (Hidden state) */}
+                <div className={`absolute inset-0 w-full h-full bg-indigo-500 rounded-xl shadow-md flex items-center justify-center backface-hidden ${isFlipped ? 'hidden' : ''}`}>
+                  <Gamepad2 size={32} className="text-indigo-300 opacity-50" />
                 </div>
-                `;
-            }).join('');
-        }
+                {/* Back of card (Revealed state) */}
+                <div className={`absolute inset-0 w-full h-full bg-white border-2 border-indigo-200 rounded-xl shadow-md flex items-center justify-center p-2 text-center backface-hidden ${!isFlipped ? 'hidden' : ''}`}>
+                  <span className={`font-bold ${card.type === 'present' ? 'text-indigo-600' : 'text-emerald-600'} text-sm sm:text-lg`}>
+                    {card.text}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
-        function removeHistoryItem(id) {
-            if(confirm("¿Eliminar registro?")) {
-                history = history.filter(h => h.id !== id);
-                localStorage.setItem('pos_history', JSON.stringify(history));
-                renderHistory();
-            }
-        }
+// 7. QUIZ
+function Quiz({ setView, updateProgress }) {
+  const quizData = [
+    { q: '¿Cuál es el pasado de "go"?', options: ['goed', 'went', 'gone', 'going'], a: 'went' },
+    { q: '¿Cómo se pronuncia la terminación -ed en "watched"?', options: ['/id/', '/d/', '/t/', 'muda'], a: '/t/' },
+    { q: '¿Es correcta esta oración? "He did not played soccer."', options: ['Sí, es correcta.', 'No, debería ser "He did not play".'], a: 'No, debería ser "He did not play".' },
+    { q: '¿Cuál verbo es regular?', options: ['buy', 'eat', 'study', 'see'], a: 'study' },
+    { q: 'Completa: Did you ______ the movie?', options: ['enjoy', 'enjoyed', 'enjoys', 'enjoying'], a: 'enjoy' }
+  ];
 
-        document.getElementById('btnManualAdd').onclick = () => {
-            const price = parseFloat(document.getElementById('inputManualPrice').value);
-            const name = document.getElementById('inputManualName').value || "Venta Rápida";
-            if (price > 0) {
-                addToCart({ name, price });
-                document.getElementById('inputManualPrice').value = '';
-                document.getElementById('inputManualName').value = '';
-            }
-        };
+  const [currentQ, setCurrentQ] = useState(0);
+  const [score, setScore] = useState(0);
+  const [showResult, setShowResult] = useState(false);
 
-        document.getElementById('toggleEdit').onclick = () => {
-            isEditMode = !isEditMode;
-            document.getElementById('toggleEdit').innerText = isEditMode ? "Salir" : "Configurar Botones";
-            renderProducts();
-        };
+  const handleAnswer = (opt) => {
+    if (opt === quizData[currentQ].a) {
+      setScore(s => s + 1);
+      updateProgress(20);
+    }
+    
+    if (currentQ < quizData.length - 1) {
+      setCurrentQ(c => c + 1);
+    } else {
+      setShowResult(true);
+    }
+  };
 
-        document.getElementById('btnAddProduct').onclick = () => {
-            const newP = { id: Date.now(), name: "Nuevo Botón", price: 0 };
-            products.push(newP);
-            saveProducts(); // GUARDADO PERSISTENTE AL AÑADIR
-            renderProducts();
-            openConfig(newP.id);
-        };
+  if (showResult) {
+    return (
+      <div className="text-center animate-fade-in max-w-md mx-auto bg-white p-8 rounded-xl shadow-md">
+        <BrainCircuit size={64} className="text-indigo-500 mx-auto mb-4" />
+        <h2 className="text-3xl font-bold mb-2">Quiz Terminado</h2>
+        <p className="text-xl text-slate-600 mb-6">Tu puntuación: <span className="font-bold text-indigo-600">{score} / {quizData.length}</span></p>
+        <Button onClick={() => setView('menu')} className="w-full">Volver al Menú</Button>
+      </div>
+    );
+  }
 
-        function openConfig(id) {
-            editingId = id;
-            const p = products.find(x => x.id === id);
-            document.getElementById('editName').value = p.name;
-            document.getElementById('editPrice').value = p.price;
-            configModal.classList.remove('hidden');
-        }
+  return (
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+       <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <span className="font-bold text-slate-500">Pregunta {currentQ + 1} de {quizData.length}</span>
+      </div>
 
-        document.getElementById('saveConfig').onclick = () => {
-            const name = document.getElementById('editName').value;
-            const price = parseFloat(document.getElementById('editPrice').value) || 0;
-            products = products.map(p => p.id === editingId ? { ...p, name, price } : p);
-            saveProducts(); // GUARDADO PERSISTENTE AL EDITAR
-            configModal.classList.add('hidden');
-            renderProducts();
-        };
+      <Card className="p-8">
+        <h3 className="text-2xl font-semibold mb-8 text-slate-800">{quizData[currentQ].q}</h3>
+        <div className="space-y-3">
+          {quizData[currentQ].options.map(opt => (
+            <button
+              key={opt}
+              onClick={() => handleAnswer(opt)}
+              className="w-full text-left p-4 rounded-lg border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 font-medium text-lg transition-colors"
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
 
-        document.getElementById('deleteProduct').onclick = () => {
-            products = products.filter(p => p.id !== editingId);
-            saveProducts(); // GUARDADO PERSISTENTE AL ELIMINAR
-            configModal.classList.add('hidden');
-            renderProducts();
-        };
+// 8. MODO HISTORIA
+function StoryMode({ setView }) {
+  const story = [
+    { eng: "Manolo loved María.", esp: "Manolo amaba a María.", verb: "loved", base: "love", type: "regular", sound: "d" },
+    { eng: "Joaquín protected the town.", esp: "Joaquín protegió el pueblo.", verb: "protected", base: "protect", type: "regular", sound: "id" },
+    { eng: "Xibalba tricked Manolo.", esp: "Xibalba engañó a Manolo.", verb: "tricked", base: "trick", type: "regular", sound: "t" },
+    { eng: "Manolo died.", esp: "Manolo murió.", verb: "died", base: "die", type: "regular", sound: "d" },
+    { eng: "Manolo met his family.", esp: "Manolo conoció a su familia.", verb: "met", base: "meet", type: "irregular" },
+    { eng: "Manolo sang to the bull.", esp: "Manolo le cantó al toro.", verb: "sang", base: "sing", type: "irregular" }
+  ];
 
-        document.getElementById('closeModal').onclick = () => configModal.classList.add('hidden');
-        document.getElementById('btnLimpiar').onclick = () => { 
-            if (cart.length === 0) return;
-            if(payments.length > 0 && !confirm("Hay un pago parcial iniciado. ¿Seguro que quieres cancelar la venta?")) return;
-            cart = []; payments = []; updateUI(); 
-        };
-        inputPago.oninput = updateUI;
+  const [activeLine, setActiveLine] = useState(null);
 
-        document.getElementById('btnClearHistory').onclick = () => {
-            if(confirm("¿Borrar todo el historial?")) {
-                history = [];
-                localStorage.setItem('pos_history', JSON.stringify([]));
-                renderHistory();
-            }
-        };
+  return (
+    <div className="space-y-6 animate-fade-in max-w-3xl mx-auto">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <h2 className="text-2xl font-bold flex items-center gap-2"><Film className="text-indigo-500"/> The Book of Life</h2>
+      </div>
 
-        document.getElementById('btnExportPDF').onclick = () => {
-            if (history.length === 0) return;
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+      <div className="bg-white p-6 rounded-xl shadow-sm space-y-4">
+        <p className="text-slate-500 mb-4">Lee la historia. Haz clic en cada frase para escucharla y ver la explicación del verbo.</p>
+        
+        {story.map((line, i) => (
+          <div 
+            key={i} 
+            className={`p-4 rounded-lg border-l-4 cursor-pointer transition-all ${activeLine === i ? 'bg-indigo-50 border-indigo-500 shadow-sm' : 'bg-slate-50 border-slate-300 hover:bg-slate-100'}`}
+            onClick={() => {
+              setActiveLine(activeLine === i ? null : i);
+              if (activeLine !== i) playAudio(line.eng);
+            }}
+          >
+            <div className="flex justify-between items-center">
+              <p className="text-lg sm:text-xl font-bold text-slate-800">{line.eng}</p>
+              <Volume2 size={20} className={activeLine === i ? "text-indigo-600" : "text-slate-400"} />
+            </div>
             
-            doc.setFontSize(18);
-            doc.text("Reporte Detallado de Ventas", 14, 15);
-            
-            let totalGeneral = 0;
-            let totalEfectivo = 0;
-            let totalTarjeta = 0;
-            
-            const rows = [];
-            history.forEach(v => {
-                const itemsStr = v.items.map(it => `${it.name} (${formatMoney(it.price)})`).join('\n');
-                
-                const efec = v.pagos['Efectivo'] || 0;
-                const tarj = v.pagos['Tarjeta'] || 0;
-                
-                totalEfectivo += efec;
-                totalTarjeta += tarj;
-                totalGeneral += (parseFloat(v.total) || 0);
+            {activeLine === i && (
+              <div className="mt-4 pt-4 border-t border-indigo-100 text-sm sm:text-base">
+                <p className="text-slate-600 mb-2 font-medium">🇪🇸 Traducción: <span className="font-normal">{line.esp}</span></p>
+                <div className="bg-white p-3 rounded border text-slate-700">
+                  <span className="font-bold text-indigo-700">{line.verb}</span> es el pasado de <strong>{line.base}</strong>. 
+                  <br/>
+                  Es un verbo <span className="font-semibold">{line.type}</span>
+                  {line.type === 'regular' && <span>, y su terminación -ed suena como <strong>/{line.sound}/</strong>.</span>}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-                const pagosStr = [];
-                if(efec > 0) pagosStr.push(`Efectivo: ${formatMoney(efec)}`);
-                if(tarj > 0) pagosStr.push(`Tarjeta: ${formatMoney(tarj)}`);
+// 9. PROGRESO
+function ProgressView({ setView, progress }) {
+  // Determine level
+  const level = progress.points < 100 ? 'Principiante' : progress.points < 300 ? 'Intermedio' : 'Experto';
+  const progressPercent = Math.min((progress.points % 100), 100);
 
-                rows.push([v.fechaFull, itemsStr, pagosStr.join('\n'), formatMoney(v.total)]);
-            });
-            
-            // Tabla de transacciones
-            doc.autoTable({ 
-                head: [['Fecha', 'Productos', 'Pagos', 'Total']], 
-                body: rows, 
-                startY: 25,
-                styles: { fontSize: 8 }
-            });
+  return (
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setView('menu')}><ArrowLeft size={18}/> Menú</Button>
+        <h2 className="text-2xl font-bold text-slate-800">Mi Progreso</h2>
+      </div>
 
-            // --- SECCIÓN DE CUADRE DE CAJA ---
-            const finalY = doc.lastAutoTable.finalY + 15;
-            doc.setFontSize(14);
-            doc.text("RESUMEN DE CUADRE", 14, finalY);
-            
-            doc.autoTable({
-                startY: finalY + 5,
-                head: [['Concepto', 'Monto Total']],
-                body: [
-                    ['Total en Efectivo', formatMoney(totalEfectivo)],
-                    ['Total en Tarjeta', formatMoney(totalTarjeta)],
-                    ['TOTAL GENERAL RECAUDADO', formatMoney(totalGeneral)]
-                ],
-                theme: 'grid',
-                headStyles: { fillColor: [51, 122, 183] },
-                styles: { fontSize: 10, fontStyle: 'bold' }
-            });
+      <Card className="text-center p-8 bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0">
+        <Trophy size={80} className="mx-auto text-yellow-300 mb-4 drop-shadow-md" />
+        <h3 className="text-3xl font-black mb-2">{progress.points} Puntos Totales</h3>
+        <p className="text-indigo-100 text-lg">Nivel Actual: <span className="font-bold">{level}</span></p>
+        
+        <div className="mt-8 bg-white/20 rounded-full h-4 overflow-hidden relative">
+          <div className="bg-yellow-400 h-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+        </div>
+        <p className="text-xs text-indigo-200 mt-2 text-right">{progressPercent}/100 para el próximo nivel</p>
+      </Card>
 
-            doc.save(`cuadre-caja-${new Date().toLocaleDateString()}.pdf`);
-        };
-
-        // Render inicial
-        renderProducts();
-        renderHistory();
-        updateUI();
-    </script>
-</body>
-</html>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card className="flex items-center gap-4">
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full"><BrainCircuit size={24}/></div>
+          <div>
+            <p className="text-sm text-slate-500 font-bold">Actividades Completadas</p>
+            <p className="text-2xl font-black text-slate-800">{Math.floor(progress.points / 15)}</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="p-3 bg-orange-100 text-orange-600 rounded-full"><BookOpen size={24}/></div>
+          <div>
+            <p className="text-sm text-slate-500 font-bold">Verbos en la base</p>
+            <p className="text-2xl font-black text-slate-800">{verbsData.length}</p>
+          </div>
+        </Card>
+      </div>
+      
+      <p className="text-center text-slate-400 text-sm mt-8">El progreso se guarda automáticamente en tu navegador.</p>
+    </div>
+  );
+}
